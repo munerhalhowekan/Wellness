@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exercises — Wellness</title>
+  <style>
+    :root{
+      --bg:#1c1c1c; --layer:#222; --card:#2a2a2a; --text:#fff; --muted:#cfcfcf;
+      --border:#3a3a3a; --accent:#ff6600; --accent-2:#ff8533; --ok:#0fb76b;
+      --shadow:0 0 18px rgba(255,102,0,.28);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Poppins","Segoe UI",system-ui,Arial,sans-serif}
+
+    /* ===== Header (hamburger left, page title center, logo right) ===== */
+    header{
+      position:sticky;top:0;z-index:60;background:var(--layer);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;padding:12px 18px;box-shadow:0 4px 12px rgba(0,0,0,.25);
+    }
+    .hamburger{cursor:pointer;font-size:24px;user-select:none;order:1}
+    .page{order:2;font-weight:800;letter-spacing:.3px}
+    .logo-link{order:3;display:flex;align-items:center}
+    .logo-img{width:120px;height:auto;object-fit:contain;display:block}
+
+    /* ===== Left Drawer ===== */
+    .drawer{
+      position:fixed;left:-260px;top:0;height:100vh;width:260px;background:var(--card);
+      border-right:1px solid var(--border);box-shadow:16px 0 30px rgba(0,0,0,.45);padding:18px 12px;z-index:80;transition:left .28s ease;
+    }
+    .drawer.open{left:0}
+    .drawer h4{margin:4px 8px 12px;color:var(--accent)}
+    .drawer a{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;padding:12px 10px;border-radius:10px;margin:2px 6px}
+    .drawer a:hover{background:rgba(255,102,0,.14)}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:70;display:none}
+    .overlay.show{display:block}
+
+    /* ===== Page Shell ===== */
+    main{padding:18px 22px;max-width:1200px;margin:0 auto}
+
+    /* Top bar: search + link + select toggle */
+    .topbar{
+      display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;margin-bottom:16px;
+    }
+    .search{
+      display:flex;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;
+    }
+    .search input{
+      width:100%;background:transparent;border:none;outline:none;color:var(--text);font-size:15px;
+    }
+    .top-link{color:var(--accent);text-decoration:none;font-weight:700}
+    .top-link:hover{color:var(--accent-2)}
+    .toggle-select{
+      background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;
+    }
+    .toggle-select.on{background:#a74cff}
+
+    /* Grid 3 per row */
+    .grid{
+      display:grid;grid-template-columns:repeat(3, 1fr);gap:14px;
+      max-height:calc(100vh - 210px);overflow-y:auto;padding-right:6px;
+    }
+
+    /* Exercise card */
+    .card{
+      background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow);
+      display:flex;gap:12px;align-items:center;cursor:pointer;transition:.2s;
+    }
+    .card:hover{border-color:var(--accent)}
+    .icon{
+      width:56px;height:56px;border-radius:12px;background:#333;display:grid;place-items:center;flex:0 0 56px;
+      border:1px solid var(--border);
+    }
+    .name{font-weight:800}
+    .sub{color:var(--muted);font-size:13px}
+    .card.selected{outline:3px solid var(--accent); outline-offset:2px}
+
+    /* Floating Add button (left side) */
+    .add-fab{
+      position:fixed;left:16px;bottom:20px;background:var(--accent);color:#fff;border:none;border-radius:12px;
+      padding:12px 16px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);z-index:65;
+    }
+    .add-fab:disabled{opacity:.5;cursor:not-allowed}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:90}
+    .modal.open{display:flex}
+    .sheet{
+      width:min(680px,96vw);background:#222;color:var(--text);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);position:relative;
+    }
+    .sheet h3{margin:0 0 12px;color:var(--accent)}
+    .close{position:absolute;right:12px;top:10px;cursor:pointer;font-size:18px}
+    .field{display:flex;gap:10px;margin-bottom:12px}
+    .field label{min-width:120px;color:var(--muted)}
+    .field input[type="text"]{flex:1;background:#2f2f2f;border:1px solid var(--border);color:#fff;border-radius:8px;padding:10px}
+    .list{background:#2f2f2f;border:1px solid var(--border);border-radius:10px;padding:10px;max-height:46vh;overflow:auto}
+    .row{display:grid;grid-template-columns:1fr 90px 90px 32px;gap:8px;align-items:center;margin:6px 0}
+    .row span{font-weight:700}
+    .row input{background:#3a3a3a;border:1px solid var(--border);color:#fff;border-radius:8px;padding:8px;text-align:center}
+    .remove{background:#b81031;border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer}
+    .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+    .btn{background:var(--accent);border:none;color:#fff;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer}
+    .ghost{background:#555}
+
+    @media (max-width: 900px){
+      .grid{grid-template-columns:1fr}
+      .topbar{grid-template-columns:1fr;gap:10px}
+    }
+
+    /* minimal inline SVGs use currentColor */
+    .svg{color:#ffb26b}
+  </style>
+</head>
+<body>
+
+  <!-- Drawer + overlay -->
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <h4>Navigation</h4>
+    <a href="user-dashboard.html">🏠 Dashboard</a>
+    <a href="exercises.html">💪 Exercises</a>
+    <a href="dietplan.html">🥗 Diet Plan</a>
+    <a href="leaderboard.html">🏆 Leaderboard</a>
+  </aside>
+  <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="hamburger" onclick="toggleDrawer()">☰</div>
+    <div class="page">Exercises</div>
+    <a href="user-dashboard.html" class="logo-link">
+      <img src="wellness logo.png" alt="Wellness Logo" class="logo-img">
+    </a>
+  </header>
+
+  <!-- Page -->
+  <main>
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="search">
+        <input id="searchInput" type="text" placeholder="Search exercise..." oninput="renderGrid()">
+      </div>
+      <a class="top-link" href="recommended.html">Recommended Exercises</a>
+      <button id="selectToggle" class="toggle-select" onclick="toggleSelectMode()">Select</button>
+    </div>
+
+    <!-- Grid -->
+    <div id="grid" class="grid" aria-live="polite"></div>
+  </main>
+
+  <!-- Floating Add button -->
+  <button id="addFab" class="add-fab" onclick="openModal()" disabled>+ Add Workout</button>
+
+  <!-- Create Workout Modal -->
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="sheet">
+      <span class="close" onclick="closeModal()">✕</span>
+      <h3>Create Workout</h3>
+
+      <div class="field">
+        <label for="woName">Workout name</label>
+        <input id="woName" type="text" placeholder="e.g. Push Day"/>
+      </div>
+
+      <div class="list" id="woList"></div>
+
+      <div class="actions">
+        <button class="btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn" onclick="saveWorkout()">Add to Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===== Drawer ===== */
+    function toggleDrawer(force){
+      const drawer = document.getElementById('drawer');
+      const overlay = document.getElementById('overlay');
+      const willOpen = (typeof force === 'boolean') ? force : !drawer.classList.contains('open');
+      drawer.classList.toggle('open', willOpen);
+      overlay.classList.toggle('show', willOpen);
+    }
+    // Auto-close when clicking a drawer link
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#drawer a').forEach(a => a.addEventListener('click', ()=>toggleDrawer(false)));
+    });
+
+    /* ===== Data (minimal icons via inline SVG) ===== */
+    const EXERCISES = [
+      {id:'pulldown', name:'Lat Pulldown', icon:svgLat()},
+      {id:'squat', name:'Squat', icon:svgSquat()},
+      {id:'bench', name:'Bench Press', icon:svgBench()},
+      {id:'ohp', name:'Shoulder Press', icon:svgOHP()},
+      {id:'curl', name:'Biceps Curl', icon:svgCurl()},
+      {id:'row', name:'Barbell Row', icon:svgRow()},
+      {id:'deadlift', name:'Deadlift', icon:svgDead()},
+      {id:'plank', name:'Plank', icon:svgPlank()},
+      {id:'lunges', name:'Lunges', icon:svgLunge()}
+    ];
+
+    let selectMode = false;
+    const selected = new Map(); // id -> {id,name,sets,reps}
+
+    function toggleSelectMode(){
+      selectMode = !selectMode;
+      document.getElementById('selectToggle').classList.toggle('on', selectMode);
+      document.getElementById('selectToggle').textContent = selectMode ? 'Selecting…' : 'Select';
+      // Clear selection when turning off
+      if(!selectMode){ selected.clear(); }
+      syncFab();
+      renderGrid();
+    }
+
+    function syncFab(){
+      const fab = document.getElementById('addFab');
+      fab.disabled = selected.size === 0;
+    }
+
+    function renderGrid(){
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+
+      EXERCISES
+        .filter(x => x.name.toLowerCase().includes(q))
+        .forEach(x => {
+          const card = document.createElement('div');
+          card.className = 'card' + (selected.has(x.id) ? ' selected' : '');
+          card.onclick = () => onCardClick(x);
+          card.innerHTML = `
+            <div class="icon">${x.icon}</div>
+            <div>
+              <div class="name">${x.name}</div>
+              <div class="sub">tap to ${selectMode ? (selected.has(x.id)?'unselect':'select') : 'preview'}</div>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+    }
+
+    function onCardClick(x){
+      if(!selectMode){
+        // preview only (could open a small info modal later)
+        alert(x.name);
+        return;
+      }
+      if(selected.has(x.id)){
+        selected.delete(x.id);
+      }else{
+        selected.set(x.id, { id:x.id, name:x.name, sets:3, reps:12 });
+      }
+      syncFab();
+      renderGrid();
+    }
+
+    /* ===== Modal create workout ===== */
+    function openModal(){
+      // Build rows from selection
+      const list = document.getElementById('woList');
+      list.innerHTML = '';
+      [...selected.values()].forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.dataset.id = item.id;
+        row.innerHTML = `
+          <span>${item.name}</span>
+          <input type="number" min="1" value="${item.sets}" aria-label="sets">
+          <input type="number" min="1" value="${item.reps}" aria-label="reps">
+          <button class="remove" title="Remove">✕</button>
+        `;
+        row.querySelector('.remove').onclick = () => { selected.delete(item.id); row.remove(); syncFab(); renderGrid(); };
+        row.querySelectorAll('input')[0].oninput = (e)=>{ item.sets = +e.target.value || 1; };
+        row.querySelectorAll('input')[1].oninput = (e)=>{ item.reps = +e.target.value || 1; };
+        list.appendChild(row);
+      });
+
+      document.getElementById('woName').value = '';
+      document.getElementById('modal').classList.add('open');
+    }
+    function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+
+    function saveWorkout(){
+      if(selected.size === 0){ alert('Select at least one exercise.'); return; }
+      const name = document.getElementById('woName').value.trim() || 'Custom Workout';
+      const items = [...selected.values()].map(x => ({name:x.name, sets:x.sets, reps:x.reps}));
+
+      // Save to localStorage (frontend only)
+      const key = 'wellness.workouts';
+      const current = JSON.parse(localStorage.getItem(key) || '[]');
+      current.push({ name, items, createdAt: Date.now() });
+      localStorage.setItem(key, JSON.stringify(current));
+
+      alert('Workout added to dashboard!');
+      // Reset selection and close
+      selected.clear(); syncFab(); renderGrid(); closeModal();
+    }
+
+    /* ===== Init ===== */
+    renderGrid();
+
+    /* ===== Minimal inline SVGs (icons suggest the shape) ===== */
+    function svgLat(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M3 12h5l2-4 4 8 2-4h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
+    function svgSquat(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="2" stroke="currentColor" stroke-width="2"/><path d="M12 7v4M7 14h10M8 10l-3 4m11-4 3 4M9 14v4m6-4v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgBench(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M4 14h16M6 14v4m12-4v4M8 10h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgOHP(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M12 6v6m-3 0h6m-6 0v6m6-6v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgCurl(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M4 12h3m10 0h3M7 12c2-6 8-6 10 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgRow(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M3 16h18M8 10l8 6M8 10H6m10 6h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgDead(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M4 18h16M8 18V8m8 10V8M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgPlank(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M3 13h18M8 11l4 2 5 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+    function svgLunge(){return `<svg class="svg" width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M6 18h6m-3-7 3 3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`}
+  </script>
+</body>
+</html>
