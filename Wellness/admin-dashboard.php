@@ -1,3 +1,26 @@
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
+include 'db-connection.php';
+
+
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    die("❌ Access denied. Admins only.");
+}
+
+
+$userCount = $conn->query("SELECT COUNT(*) AS c FROM users")->fetch_assoc()['c'];
+
+
+$ex1 = $conn->query("SELECT COUNT(*) AS c FROM workout_beginner")->fetch_assoc()['c'];
+$ex2 = $conn->query("SELECT COUNT(*) AS c FROM workout_intermediate")->fetch_assoc()['c'];
+$ex3 = $conn->query("SELECT COUNT(*) AS c FROM workout_advanced")->fetch_assoc()['c'];
+
+$totalExercises = $ex1 + $ex2 + $ex3;
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -16,7 +39,7 @@ body{
   font-family:"Poppins","Segoe UI",system-ui,sans-serif;
 }
 
-/* Header (matches user pages) */
+/* Header */
 header{
   position:sticky;top:0;z-index:60;background:var(--layer);
   border-bottom:1px solid var(--border);
@@ -67,11 +90,11 @@ main{padding:30px;max-width:1200px;margin:auto}
 .card-title{font-weight:700;margin-bottom:6px}
 .card-number{font-size:1.8rem;font-weight:800;color:var(--accent)}
 
-/* Logout button */
+/* Logout */
 .logout{
   background:transparent;border:2px solid var(--accent);
   color:var(--accent);border-radius:10px;padding:6px 14px;
-  font-weight:600;cursor:pointer;transition:.25s;
+  font-weight:600;cursor:pointer;transition:.25s;margin-top:20px;
 }
 .logout:hover{background:var(--accent);color:#fff}
 </style>
@@ -81,18 +104,22 @@ main{padding:30px;max-width:1200px;margin:auto}
 <!-- Drawer + overlay -->
 <aside id="drawer" class="drawer" aria-hidden="true">
   <h4>Admin Navigation</h4>
-  <a href="admin-dashboard.html" class="active">🏠 Dashboard</a>
-  <a href="manage-users.html">👥 Manage Users</a>
-  <a href="manage-exercises.html">💪 Manage Exercises</a>
-  <a href="manage-diet.html">🥗 Manage Diet Plans</a>
+  <a href="admin-dashboard.php" class="active">🏠 Dashboard</a>
+  <a href="manage-users.php">👥 Manage Users</a>
+  <a href="manage-exercises.php">💪 Manage Exercises</a>
+  <a href="manage-diet.php">🥗 Manage Diet Plans</a>
+  <form action="logout.php" method="post">
+    <button class="logout">Logout</button>
+  </form>
 </aside>
+
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
 <!-- Header -->
 <header>
   <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Admin Dashboard</div>
-  <a href="admin-dashboard.html" class="logo-link">
+  <a href="admin-dashboard.php" class="logo-link">
     <img src="wellness logo.png" alt="Wellness Logo" class="logo-img">
   </a>
 </header>
@@ -103,19 +130,21 @@ main{padding:30px;max-width:1200px;margin:auto}
   <p class="subtitle">Here’s a summary of your site:</p>
 
   <div class="stats">
+
     <div class="card">
       <div class="card-icon">👥</div>
       <div class="card-title">Total Users</div>
-      <div class="card-number">42</div>
+      <div class="card-number"><?php echo $userCount; ?></div>
     </div>
+
     <div class="card">
       <div class="card-icon">💪</div>
       <div class="card-title">Total Exercises</div>
-      <div class="card-number">89</div>
+      <div class="card-number"><?php echo $totalExercises; ?></div>
     </div>
+
   </div>
 
-  
 </main>
 
 <script>
@@ -126,5 +155,6 @@ function toggleDrawer(force){
 }
 document.querySelectorAll('#drawer a').forEach(a=>a.addEventListener('click',()=>toggleDrawer(false)));
 </script>
+
 </body>
 </html>
