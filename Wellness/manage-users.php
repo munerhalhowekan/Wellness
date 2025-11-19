@@ -1,17 +1,16 @@
 <?php
 session_start();
 
-// OPTIONAL: Only allow admin access
-// if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-//     die("Access denied.");
-// }
+ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+   die("Access denied.");
+ }
 
 $conn = mysqli_connect("localhost", "root", "root", "wellness", 3306);
 if (!$conn) {
     die("Database connection failed: " . mysqli_connect_error());
 }
 
-// Handle EDIT (update)
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['updateUser'])) {
     $id = intval($_POST['UserID']);
     $email = $_POST['email'];
@@ -31,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['updateUser'])) {
     exit;
 }
 
-// Handle DELETE
+
 if (isset($_GET['delete'])) {
     $deleteID = intval($_GET['delete']);
     mysqli_query($conn, "DELETE FROM users WHERE UserID=$deleteID");
@@ -39,7 +38,7 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-// Fetch users
+
 $sql = "SELECT UserID, firstName, lastName, email, fitness_level, health_condition, points 
         FROM users 
         WHERE role='user'";
@@ -65,7 +64,7 @@ body{
   font-family:"Poppins","Segoe UI",system-ui,sans-serif;
 }
 
-/* Header */
+
 header{
   position:sticky;top:0;z-index:60;background:var(--layer);
   border-bottom:1px solid var(--border);
@@ -76,7 +75,7 @@ header{
 .page{font-weight:800}
 .logo-img{width:120px;height:auto;object-fit:contain}
 
-/* Drawer */
+
 .drawer{
   position:fixed;left:-260px;top:0;height:100vh;width:260px;background:var(--card);
   border-right:1px solid var(--border);box-shadow:16px 0 30px rgba(0,0,0,.45);
@@ -89,12 +88,12 @@ header{
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:70}
 .overlay.show{display:block}
 
-/* Main */
+
 main{padding:30px;max-width:1200px;margin:auto}
 .page-title{font-size:1.6rem;font-weight:700;color:var(--accent)}
 .subtitle{color:var(--muted);margin-bottom:20px}
 
-/* Table */
+
 table{
   width:100%;border-collapse:collapse;background:var(--card);
   border-radius:10px;overflow:hidden;box-shadow:var(--shadow);
@@ -112,7 +111,7 @@ tr:hover{background:#2f2f2f}
 }
 .actions button:hover{background:var(--accent);color:#fff}
 
-/* Modal */
+
 .modal{
   position:fixed;inset:0;background:rgba(0,0,0,.7);
   display:none;align-items:center;justify-content:center;z-index:90;
@@ -141,7 +140,7 @@ input, select{
 </head>
 <body>
 
-<!-- Drawer -->
+
 <aside id="drawer" class="drawer">
   <h4>Admin Navigation</h4>
   <a href="admin-dashboard.php">🏠 Dashboard</a>
@@ -151,7 +150,7 @@ input, select{
 </aside>
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
-<!-- Header -->
+
 <header>
   <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Manage Users</div>
@@ -203,7 +202,7 @@ input, select{
   </table>
 </main>
 
-<!-- Modal -->
+
 <div id="editModal" class="modal">
   <div class="modal-content">
     <h2>Edit User</h2>
@@ -282,3 +281,4 @@ function deleteUser(id){
 
 </body>
 </html>
+
