@@ -1,9 +1,66 @@
-<!DOCTYPE html>
+<?php
+// recommended.php (user-facing)
+session_start();
+require 'db-connection.php';
+ini_set('display_errors',1);
+error_reporting(E_ALL);
+
+// تأكد أن المستخدم مسجل ولديه user_id
+if (!isset($_SESSION['user_id']) || !is_numeric($_SESSION['user_id'])) {
+    // لو تريد إعادة توجيه لصفحة تسجيل الدخول بدل الرسالة
+    http_response_code(403);
+    echo "Please login to use this page.";
+    exit;
+}
+$USER_ID = intval($_SESSION['user_id']);
+
+// Handle AJAX POST: add recommended to user's dashboard (user_workouts)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_to_dashboard') {
+    $rec_id = intval($_POST['recommended_id'] ?? 0);
+    if ($rec_id <= 0) {
+        echo json_encode(['ok'=>false,'error'=>'Invalid recommended id']);
+        exit;
+    }
+    // fetch recommended by id
+    $stmt = $conn->prepare("SELECT name, items FROM recommended_master WHERE id = ? LIMIT 1");
+    $stmt->bind_param('i',$rec_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $row = $res->fetch_assoc();
+    $stmt->close();
+    if (!$row) {
+        echo json_encode(['ok'=>false,'error'=>'Not found']);
+        exit;
+    }
+    $name = $row['name'];
+    $items = $row['items']; // already JSON
+    // insert into user_workouts
+    $ins = $conn->prepare("INSERT INTO user_workouts (user_id, name, items, created_at) VALUES (?, ?, ?, NOW())");
+    $ins->bind_param('iss', $USER_ID, $name, $items);
+    $ok = $ins->execute();
+    $ins->close();
+    echo json_encode(['ok'=> (bool)$ok]);
+    exit;
+}
+
+// GET: load recommended_master
+$recommended = [];
+$res = $conn->query("SELECT id, name, level, items, created_at FROM recommended_master ORDER BY created_at DESC");
+if ($res) {
+    while ($r = $res->fetch_assoc()) {
+        $r['items_arr'] = json_decode($r['items'], true) ?: [];
+        $recommended[] = $r;
+    }
+    $res->free();
+}
+?>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Recommended Workouts — Wellness</title>
+<!-- استخدمت هنا نفس CSS الذي ارسلتِه سابقاً -->
 <style>
 :root{
   --bg:#1c1c1c;--layer:#222;--card:#2a2a2a;--text:#fff;--muted:#cfcfcf;
@@ -11,77 +68,50 @@
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:"Poppins","Segoe UI",system-ui,Arial,sans-serif}
-
-/* header */
-header{
-  position:sticky;top:0;z-index:60;background:var(--layer);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between;padding:12px 18px;box-shadow:0 4px 12px rgba(0,0,0,.25);
-}
-.hamburger{cursor:pointer;font-size:24px;user-select:none}
+header{position:sticky;top:0;z-index:60;background:var(--layer);border-bottom:1px solid var(--border);
+ display:flex;align-items:center;justify-content:space-between;padding:12px 18px;box-shadow:0 4px 12px rgba(0,0,0,.25);}
 .page{font-weight:800}
-.logo-link{display:flex;align-items:center}
-.logo-img{width:120px;height:auto;object-fit:contain}
-
-/* drawer */
-.drawer{
-  position:fixed;left:-260px;top:0;height:100vh;width:260px;background:var(--card);
-  border-right:1px solid var(--border);box-shadow:16px 0 30px rgba(0,0,0,.45);
-  padding:18px;z-index:80;transition:left .28s ease;
-}
+.drawer{position:fixed;left:-260px;top:0;height:100vh;width:260px;background:var(--card);border-right:1px solid var(--border);padding:18px;z-index:80;transition:left .28s ease;}
 .drawer.open{left:0}
-.drawer h4{margin:4px 8px 12px;color:var(--accent)}
-.drawer a{display:block;color:var(--text);text-decoration:none;padding:10px;border-radius:10px;margin:6px 0}
-.drawer a:hover{background:rgba(255,102,0,.15)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:70}
 .overlay.show{display:block}
-
-/* content */
 main{padding:20px;max-width:1100px;margin:auto}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
-.card{
-  background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);
-  cursor:pointer;transition:.25s
-}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);cursor:pointer;transition:.25s}
 .card:hover{border-color:var(--accent);transform:translateY(-4px)}
 .card h3{margin:0 0 8px;color:var(--accent)}
 .card p{color:var(--muted);margin:0}
-
-/* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:90}
 .modal.open{display:flex}
-.sheet{
-  position:relative;background:#222;color:var(--text);border:1px solid var(--border);
-  border-radius:14px;padding:20px;width:min(600px,90vw);box-shadow:var(--shadow);
-}
+.sheet{position:relative;background:#222;color:var(--text);border:1px solid var(--border);border-radius:14px;padding:20px;width:min(600px,90vw);box-shadow:var(--shadow)}
 .close{position:absolute;right:20px;top:16px;cursor:pointer;font-size:18px}
 h2{margin:0 0 12px;color:var(--accent)}
 ul{list-style:none;padding:0;margin:0 0 12px}
 li{margin:8px 0;padding:8px;background:#2f2f2f;border-radius:8px;border:1px solid var(--border)}
 .btn{background:var(--accent);border:none;color:#fff;padding:10px 18px;border-radius:10px;font-weight:800;cursor:pointer}
 .btn:hover{background:var(--accent-2)}
+.pill{display:inline-block;background:#333;border-radius:999px;padding:6px 8px;color:#fff;margin-right:6px}
 </style>
 </head>
 <body>
-<!-- drawer + overlay -->
-<aside id="drawer" class="drawer" aria-hidden="true">
-  <h4>Navigation</h4>
-  <a href="user-dashboard.html">🏠 Dashboard</a>
-  <a href="exercises.html">💪 Exercises</a>
-  <a href="dietplan.html">🥗 Diet Plan</a>
-  <a href="leaderboard.html">🏆 Leaderboard</a>
-</aside>
-<div id="overlay" class="overlay"></div>
 
-<!-- header -->
 <header>
-  <div class="hamburger" id="hamburger">☰</div>
   <div class="page">Recommended Workouts</div>
-  <a href="user-dashboard.html" class="logo-link"><img src="wellness logo.png" class="logo-img" alt="logo"></a>
 </header>
 
 <main>
-  <div class="grid" id="grid">
-    <!-- cards injected by JS -->
+  <div class="grid">
+    <?php if (empty($recommended)): ?>
+      <div class="card"><h3 style="color:var(--accent)">No recommended yet</h3><p style="color:var(--muted)">No items found.</p></div>
+    <?php endif; ?>
+
+    <?php foreach ($recommended as $w): ?>
+      <div class="card" onclick='openModal(<?= json_encode($w, JSON_UNESCAPED_UNICODE) ?>)'>
+        <h3><?= htmlspecialchars($w['name']) ?></h3>
+        <p>Level: <span class="pill"><?= htmlspecialchars($w['level']) ?></span></p>
+        <p><?= count($w['items_arr']) ?> exercises</p>
+      </div>
+    <?php endforeach; ?>
   </div>
 </main>
 
@@ -90,79 +120,55 @@ li{margin:8px 0;padding:8px;background:#2f2f2f;border-radius:8px;border:1px soli
   <div class="sheet">
     <span class="close" id="mClose">✕</span>
     <h2 id="mName"></h2>
+    <div style="margin-bottom:8px;color:var(--muted)">Level: <span id="mLevel" class="pill"></span></div>
     <ul id="mList"></ul>
-    <div style="text-align:right"><button class="btn" id="mAddBtn">Add to dashboard</button></div>
+    <div style="text-align:right">
+      <button class="btn" id="mAddBtn">Add to dashboard</button>
+    </div>
   </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  /* data */
-  const WORKOUTS = [
-    {name:"Back & Biceps",items:[{ex:"Lat Pulldown",sets:4,reps:12},{ex:"Barbell Row",sets:4,reps:10},{ex:"Biceps Curl",sets:3,reps:12}]},
-    {name:"Push Day",items:[{ex:"Bench Press",sets:4,reps:10},{ex:"Shoulder Press",sets:3,reps:12},{ex:"Triceps Dips",sets:3,reps:12}]},
-    {name:"Leg Day",items:[{ex:"Squat",sets:4,reps:10},{ex:"Lunges",sets:3,reps:12},{ex:"Leg Curl",sets:3,reps:15}]},
-    {name:"Core Focus",items:[{ex:"Plank",sets:3,reps:60},{ex:"Crunches",sets:4,reps:20},{ex:"Leg Raises",sets:3,reps:15}]}
-  ];
+const modal = document.getElementById('modal');
+const mName = document.getElementById('mName');
+const mLevel = document.getElementById('mLevel');
+const mList = document.getElementById('mList');
+const mAddBtn = document.getElementById('mAddBtn');
+let currentRec = null;
 
-  /* drawer */
-  const drawer = document.getElementById('drawer');
-  const overlay = document.getElementById('overlay');
-  const hamburger = document.getElementById('hamburger');
-  function toggleDrawer(open){
-    const willOpen = (typeof open === 'boolean') ? open : !drawer.classList.contains('open');
-    drawer.classList.toggle('open', willOpen);
-    overlay.classList.toggle('show', willOpen);
-  }
-  hamburger.addEventListener('click', () => toggleDrawer());
-  overlay.addEventListener('click', () => toggleDrawer(false));
-  document.querySelectorAll('#drawer a').forEach(a => a.addEventListener('click', () => toggleDrawer(false)));
-
-  /* grid render */
-  const grid = document.getElementById('grid');
-  WORKOUTS.forEach(w => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<h3>${w.name}</h3><p>${w.items.length} exercises</p>`;
-    card.addEventListener('click', () => openModal(w));
-    grid.appendChild(card);
+function openModal(w){
+  currentRec = w;
+  mName.textContent = w.name;
+  mLevel.textContent = w.level || '';
+  mList.innerHTML = '';
+  (w.items_arr || []).forEach(i=>{
+    const li = document.createElement('li');
+    li.textContent = `${i.name || i.ex || i.exercise} — ${i.sets} sets × ${i.reps} reps`;
+    mList.appendChild(li);
   });
+  modal.classList.add('open');
+}
+document.getElementById('mClose').onclick = ()=> modal.classList.remove('open');
+modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
 
-  /* modal */
-  const modal = document.getElementById('modal');
-  const mName = document.getElementById('mName');
-  const mList = document.getElementById('mList');
-  const mClose = document.getElementById('mClose');
-  const mAddBtn = document.getElementById('mAddBtn');
-  let currentWorkout = null;
-
-  function openModal(w){
-    currentWorkout = w;
-    mName.textContent = w.name;
-    mList.innerHTML = '';
-    w.items.forEach(i => {
-      const li = document.createElement('li');
-      li.textContent = `${i.ex} — ${i.sets} sets × ${i.reps} reps`;
-      mList.appendChild(li);
-    });
-    modal.classList.add('open');
-  }
-  function closeModal(){ modal.classList.remove('open'); }
-
-  mClose.addEventListener('click', closeModal);
-  modal.addEventListener('click', e => { if(e.target === modal) closeModal(); });
-
-  /* add to localStorage */
-  mAddBtn.addEventListener('click', () => {
-    if(!currentWorkout) return;
-    const key = 'wellness.workouts';
-    const curr = JSON.parse(localStorage.getItem(key) || '[]');
-    curr.push({ ...currentWorkout, createdAt: Date.now() });
-    localStorage.setItem(key, JSON.stringify(curr));
-    alert('Workout added!');
-    closeModal();
-  });
+mAddBtn.addEventListener('click', () => {
+  if (!currentRec) return;
+  // POST to this same page to copy recommended into user_workouts
+  const form = new FormData();
+  form.append('action','add_to_dashboard');
+  form.append('recommended_id', currentRec.id);
+  fetch(location.href, { method:'POST', body: form })
+    .then(r => r.json())
+    .then(j => {
+      if (j.ok) {
+        alert('Added to your dashboard');
+        modal.classList.remove('open');
+      } else {
+        alert('Failed: ' + (j.error || 'Unknown'));
+      }
+    }).catch(e => { alert('Request failed'); });
 });
 </script>
+
 </body>
 </html>
