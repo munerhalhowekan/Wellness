@@ -2,6 +2,7 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
+
 session_regenerate_id(true);
 include 'db-connection.php';
 
@@ -26,6 +27,8 @@ if (!isset($_SESSION['UserID'])) {
 
 $userId = (int)$_SESSION['UserID'];
 
+
+
 /****************************************
   FETCH USER INFO + STATS
 *****************************************/
@@ -38,6 +41,11 @@ $q = $conn->prepare("
     FROM users
     WHERE UserID = ?
 ");
+
+if (!$q) {
+    die("SQL ERROR (user-dashboard) → " . $conn->error);
+}
+
 $q->bind_param("i", $userId);
 $q->execute();
 $user = $q->get_result()->fetch_assoc();
@@ -82,21 +90,83 @@ switch ($fitnessLevel) {
 /****************************************
   MAP DIET TABLE BY HEALTH CONDITION
 *****************************************/
-switch ($healthCondition) {
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+$health = $_SESSION['health_condition'] ?? null;
+
+switch ($health) {
+    case 'PCOS':
+        $dietTable = "diet_pcos";
+        break;
     case 'Insulin Resistance':
         $dietTable = "diet_insulin_resist";
-        $dietTitle = "Insulin Resistance Diet";
         break;
     case 'Gluten Intolerance':
         $dietTable = "diet_glutenfree";
-        $dietTitle = "Gluten-Free Diet";
         break;
     default:
-        // نعتبر الـ default = PCOS diet
-        $dietTable = "diet_pcos";
-        $dietTitle = "PCOS Diet Plan";
+        $dietTable = "diet_pcos"; // DEFAULT ONLY IF HEALTH EMPTY
         break;
 }
+/****************************************
+  CREATE/INIT diet_progress ROW FOR TODAY
+*****************************************/
+
+// اسم اليوم الحالي
+$todayName = date("l");
+
+// هل يوجد صف سابق لهذا اليوم؟
+$chk = $conn->prepare("
+    SELECT id, breakfast_done, lunch_done, dinner_done, remaining_kcal
+    FROM diet_progress
+    WHERE userID = ? AND day = ?
+    LIMIT 1
+");
+$chk->bind_param("is", $userId, $todayName);
+$chk->execute();
+$exist = $chk->get_result()->fetch_assoc();
+$chk->close();
+
+/* 
+  لو ما فيه صف → ننشئ واحد جديد 
+  remaining_kcal = total_calories_per_day من جدول الدايت
+*/
+if (!$exist) {
+    // نجيب السعرات اليومية
+    $dailyCalories = 0;
+    $get = $conn->prepare("SELECT total_calories_per_day FROM $dietTable WHERE day = ?");
+    $get->bind_param("s", $todayName);
+    $get->execute();
+    $res = $get->get_result()->fetch_assoc();
+    $get->close();
+
+    if ($res) {
+        $dailyCalories = (int)$res['total_calories_per_day'];
+    }
+
+    // الآن ننشئ صف جديد
+    $ins = $conn->prepare("
+        INSERT INTO diet_progress (userID, day, remaining_kcal)
+        VALUES (?, ?, ?)
+    ");
+    $ins->bind_param("isi", $userId, $todayName, $dailyCalories);
+    $ins->execute();
+    $ins->close();
+
+    // نخزّن القيم في ذاكرة الصفحة
+    $breakfastDone = 0;
+    $lunchDone     = 0;
+    $dinnerDone    = 0;
+    $remainingKcal = $dailyCalories;
+
+} else {
+    // يوجد صف: نرجّع قيمه
+    $breakfastDone = (int)$exist['breakfast_done'];
+    $lunchDone     = (int)$exist['lunch_done'];
+    $dinnerDone    = (int)$exist['dinner_done'];
+    $remainingKcal = (int)$exist['remaining_kcal'];
+}
+
 
 /****************************************
   FETCH TODAY MEALS + CALORIES
@@ -491,7 +561,7 @@ $dietBtnLabel    = $dietDone ? 'Done ✓'     : 'Done';
           <h3>Today's Diet Plan</h3>
           <div class="item" onclick="openDiet()">
             <div class="meta">
-              <div class="title" id="dietTitle"><?php echo htmlspecialchars($dietTitle); ?></div>
+              <div class="title" id="dietTitle"><?php echo htmlspecialchars($health); ?></div>
               <div class="sub">Breakfast + Lunch + Dinner — tap for details</div>
             </div>
             <button 
@@ -608,11 +678,24 @@ $dietBtnLabel    = $dietDone ? 'Done ✓'     : 'Done';
   }
 
   /* Diet button → ينقص calories_remaining بقيمة dailyCalories ويخزن diet_done = 1 */
-  function markDietDone(e){
+ function markDietDone(e){
     e.stopPropagation();
-    document.getElementById('statsActionField').value = 'diet_done';
-    document.getElementById('statsForm').submit();
-  }
+
+    fetch("update_diet_done.php", {
+        method: "POST"
+    })
+    .then(r => r.json())
+    .then(data => {
+        // تحديث واجهة الداشبورد مباشرة
+        document.getElementById("caloriesVal").textContent = 0;
+
+        const btn = document.getElementById("dietCheck");
+        btn.classList.add("done");
+        btn.textContent = "Done ✓";
+    })
+    .catch(err => console.error(err));
+}
+
 
   /* Exercise edit mode */
   let exEditMode = false;
@@ -657,6 +740,24 @@ $dietBtnLabel    = $dietDone ? 'Done ✓'     : 'Done';
     document.getElementById('exActionField').value = 'delete';
     document.getElementById('exForm').submit();
   }
+  
+ 
+// ========== جلب السعرات المتبقية من جدول diet_progress ==========
+function refreshCalories() {
+    fetch("fetch_remaining.php")
+    .then(res => res.json())
+    .then(data => {
+        if (data.remaining !== undefined) {
+            document.getElementById("caloriesVal").textContent = data.remaining;
+        }
+    })
+    .catch(err => console.error("Error fetching remaining:", err));
+}
+
+// نجعل الصفحة تحدث السعرات كل 3 ثواني (تلقائي)
+setInterval(refreshCalories, 1000);
+
+
 </script>
 </body>
 </html>

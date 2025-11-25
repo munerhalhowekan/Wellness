@@ -14,6 +14,12 @@ include 'db-connection.php';
 $error_message = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    session_unset();
+session_destroy();
+session_start();
+
+    
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
 
@@ -27,9 +33,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $row = $result->fetch_assoc();
         
         if (password_verify($password, $row['password_hash'])) {
+            
+            session_regenerate_id(true);
+
+            
             $_SESSION['user_id'] = $row['UserID'];
             $_SESSION['role'] = $row['role'];
             $_SESSION['name'] = $row['firstName']; // نستخدم الاسم الأول
+
+           
+$_SESSION['health_condition'] = $row['health_condition'];
 
             // توجيه بناءً على إكمال التسجيل
             if ($row['fitness_level'] == NULL) {
