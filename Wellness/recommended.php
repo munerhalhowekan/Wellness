@@ -62,6 +62,60 @@ if ($res) {
 <title>Recommended Workouts — Wellness</title>
 <!-- استخدمت هنا نفس CSS الذي ارسلتِه سابقاً -->
 <style>
+    
+    
+    .hamburger{
+  font-size:24px;
+  cursor:pointer;
+}
+
+.drawer{
+  position:fixed;
+  left:-260px;
+  top:0;
+  height:100vh;
+  width:260px;
+  background:var(--card);
+  border-right:1px solid var(--border);
+  padding:18px;
+  z-index:80;
+  transition:left .25s;
+}
+
+.drawer.open{ left:0 }
+
+.drawer h4{
+  margin:0 0 12px;
+  color:var(--accent);
+}
+
+.drawer a{
+  display:block;
+  padding:10px;
+  border-radius:8px;
+  color:#fff;
+  text-decoration:none;
+  margin-bottom:6px;
+}
+
+.drawer a:hover{
+  background:rgba(255,102,0,.25);
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
+  display:none;
+  z-index:70;
+}
+
+.overlay.show{ display:block }
+
+    
+  
+    
+    
 :root{
   --bg:#1c1c1c;--layer:#222;--card:#2a2a2a;--text:#fff;--muted:#cfcfcf;
   --border:#3a3a3a;--accent:#ff6600;--accent-2:#ff8533;--shadow:0 0 18px rgba(255,102,0,.28);
@@ -94,10 +148,29 @@ li{margin:8px 0;padding:8px;background:#2f2f2f;border-radius:8px;border:1px soli
 </style>
 </head>
 <body>
+<!-- Drawer -->
+<div id="drawer" class="drawer">
+    <h4>Navigation</h4>
+    <a href="user-dashboard.php">🏠 Dashboard</a>
+    <a href="exercises.php">💪 Exercises</a>
+    <a href="dietplan.php">🥗 Diet Plan</a>
+    <a href="leaderboard.php">🏆 Leaderboard</a>
+</div>
 
+<div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
+
+    
+    
+    
+    
+    
+    
+    
 <header>
+  <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Recommended Workouts</div>
 </header>
+
 
 <main>
   <div class="grid">
@@ -168,6 +241,22 @@ mAddBtn.addEventListener('click', () => {
       }
     }).catch(e => { alert('Request failed'); });
 });
+
+
+
+
+
+
+
+</script>
+<script>
+function toggleDrawer(force){
+  const d = document.getElementById('drawer');
+  const o = document.getElementById('overlay');
+  const open = (typeof force === 'boolean') ? force : !d.classList.contains('open');
+  d.classList.toggle('open', open);
+  o.classList.toggle('show', open);
+}
 </script>
 
 </body>
