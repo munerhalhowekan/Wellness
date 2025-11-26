@@ -1,9 +1,34 @@
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+include "db-connection.php";
+
+// جدول → اسم الخطة
+$plans = [
+    "diet_pcos"            => "PCOS",
+    "diet_insulin_resist"  => "Insulin Resistance",
+    "diet_glutenfree"      => "Gluten Intolerance"
+];
+
+$allPlans = [];
+
+// نجيب كل الـ 7 أيام من كل جدول
+foreach ($plans as $table => $planName) {
+    $q = $conn->query("SELECT * FROM $table ORDER BY FIELD(day,'Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')");
+    while ($row = $q->fetch_assoc()) {
+        $row['planName']  = $planName;
+        $row['tableName'] = $table;
+        $allPlans[]       = $row;
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manage Diet Plans — Wellness Admin</title>
+<title>Manage Diet Plans — Admin</title>
 <style>
 :root {
   --bg:#1c1c1c; --layer:#222; --card:#2a2a2a; --text:#fff; --muted:#cfcfcf;
@@ -85,105 +110,112 @@ textarea{min-height:60px;resize:vertical;}
 </head>
 <body>
 
-<!-- Drawer + overlay -->
+<!-- Drawer -->
 <aside id="drawer" class="drawer">
   <h4>Admin Navigation</h4>
-  <a href="admin-dashboard.html">🏠 Dashboard</a>
-  <a href="manage-users.html">👥 Manage Users</a>
-  <a href="manage-exercises.html">💪 Manage Exercises</a>
-  <a href="manage-diet.html" class="active">🥗 Manage Diet Plans</a>
+  <a href="admin-dashboard.php">Dashboard</a>
+  <a href="manage-users.php">Manage Users</a>
+  <a href="manage-exercises.php">Manage Exercises</a>
+  <a class="active" href="manage-diet.php">Manage Diet</a>
 </aside>
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
-<!-- Header -->
 <header>
   <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Manage Diet Plans</div>
-  <a href="admin-dashboard.html" class="logo-link">
-    <img src="images/wellness logo.png" alt="Wellness Logo" class="logo-img">
-  </a>
 </header>
 
-<!-- Main -->
 <main>
-  <div class="page-title">Manage Diet Plans</div>
-  <p class="subtitle">A table listing all daily plans:</p>
 
-  <table id="dietTable">
-    <thead>
-      <tr><th>Plan Name / Day</th><th>Total Calories</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>Sunday</td><td>1200</td><td class="actions"><button onclick="openEdit(this)">Edit</button><button onclick="deletePlan(this)">Delete</button></td></tr>
-      <tr><td>Monday</td><td>1250</td><td class="actions"><button onclick="openEdit(this)">Edit</button><button onclick="deletePlan(this)">Delete</button></td></tr>
-      <tr><td>Tuesday</td><td>1200</td><td class="actions"><button onclick="openEdit(this)">Edit</button><button onclick="deletePlan(this)">Delete</button></td></tr>
-      <tr><td>PCOS Day 1</td><td>1400</td><td class="actions"><button onclick="openEdit(this)">Edit</button><button onclick="deletePlan(this)">Delete</button></td></tr>
-      <tr><td>Diabetes Day 1</td><td>1300</td><td class="actions"><button onclick="openEdit(this)">Edit</button><button onclick="deletePlan(this)">Delete</button></td></tr>
-    </tbody>
-  </table>
+<table>
+<thead>
+<tr>
+  <th>Plan Name / Day</th>
+  <th>Total Calories</th>
+  <th>Actions</th>
+</tr>
+</thead>
+
+<tbody>
+<?php foreach ($allPlans as $p): ?>
+<tr data-table="<?= $p['tableName']; ?>" data-id="<?= $p[array_key_first($p)]; ?>">
+  <td><?= $p['planName'].' — '.$p['day']; ?></td>
+  <td><?= $p['total_calories_per_day']; ?></td>
+  <td>
+    <button onclick='openEdit(<?= json_encode($p) ?>)'>Edit</button>
+    <button onclick="deletePlan('<?= $p['tableName'] ?>','<?= $p[array_key_first($p)] ?>')">Delete</button>
+  </td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+</table>
+
 </main>
 
-<!-- Edit Modal -->
+<!-- EDIT MODAL -->
 <div id="editModal" class="modal">
   <div class="modal-content">
     <h2>Edit Diet Plan</h2>
 
-    <div class="form-group">
-      <label>Plan Name / Day</label>
-      <input type="text" id="planName">
-    </div>
+    <form id="editForm">
 
-    <h3>--- Breakfast ---</h3>
-    <div class="form-group">
-      <label>Food Items</label>
-      <textarea id="breakfastItems"></textarea>
+      <input type="hidden" name="table">
+      <input type="hidden" name="id">
+
+      <label>Plan Name</label>
+      <input type="text" id="planName" disabled>
+
+      <label>Day</label>
+      <input type="text" id="day" disabled>
+
+      <h3>Breakfast</h3>
+      <textarea name="breakfast" id="breakfast"></textarea>
       <label>Calories</label>
-      <input type="number" id="breakfastCalories">
-    </div>
+      <input type="number" name="b_calories" id="b_calories">
 
-    <h3>--- Lunch ---</h3>
-    <div class="form-group">
-      <label>Food Items</label>
-      <textarea id="lunchItems"></textarea>
+      <h3>Lunch</h3>
+      <textarea name="lunch" id="lunch"></textarea>
       <label>Calories</label>
-      <input type="number" id="lunchCalories">
-    </div>
+      <input type="number" name="l_calories" id="l_calories">
 
-    <h3>--- Dinner ---</h3>
-    <div class="form-group">
-      <label>Food Items</label>
-      <textarea id="dinnerItems"></textarea>
+      <h3>Dinner</h3>
+      <textarea name="dinner" id="dinner"></textarea>
       <label>Calories</label>
-      <input type="number" id="dinnerCalories">
-    </div>
+      <input type="number" name="d_calories" id="d_calories">
 
-    <div class="modal-buttons">
-      <button id="cancelBtn" onclick="closeEdit()">Cancel</button>
-      <button id="saveBtn" onclick="saveEdit()">Save</button>
-    </div>
+      <button type="button" onclick="saveEdit()">Save Changes</button>
+      <button type="button" onclick="closeEdit()">Cancel</button>
+
+    </form>
+
   </div>
 </div>
 
 <script>
 function toggleDrawer(force){
   const d=document.getElementById('drawer'),o=document.getElementById('overlay');
-  const open=(typeof force==='boolean')?force:!d.classList.contains('open');
-  d.classList.toggle('open',open);o.classList.toggle('show',open);
+  const open = (typeof force==='boolean')?force:!d.classList.contains('open');
+  d.classList.toggle('open',open); o.classList.toggle('show',open);
 }
 
-// Mock data for editing
-let currentRow = null;
-
-function openEdit(btn){
-  currentRow = btn.closest("tr");
-  document.getElementById("planName").value = currentRow.children[0].textContent;
-  document.getElementById("breakfastItems").value = "1 egg\n2 coffee";
-  document.getElementById("breakfastCalories").value = 160;
-  document.getElementById("lunchItems").value = "Grilled chicken salad";
-  document.getElementById("lunchCalories").value = 450;
-  document.getElementById("dinnerItems").value = "Baked salmon\nSteamed vegetables";
-  document.getElementById("dinnerCalories").value = 590;
+function openEdit(p){
   document.getElementById("editModal").classList.add("open");
+
+  // تعبئة الفورم
+  document.querySelector("input[name='table']").value = p.tableName;
+  document.querySelector("input[name='id']").value = p.PcosID ?? p.InsulinID ?? p.GlutenfreeID;
+
+  document.getElementById("planName").value = p.planName;
+  document.getElementById("day").value = p.day;
+
+  document.getElementById("breakfast").value = p.breakfast;
+  document.getElementById("b_calories").value = p.b_calories;
+
+  document.getElementById("lunch").value = p.lunch;
+  document.getElementById("l_calories").value = p.l_calories;
+
+  document.getElementById("dinner").value = p.dinner;
+  document.getElementById("d_calories").value = p.d_calories;
 }
 
 function closeEdit(){
@@ -191,21 +223,34 @@ function closeEdit(){
 }
 
 function saveEdit(){
-  if(currentRow){
-    currentRow.children[0].textContent = document.getElementById("planName").value;
-    const totalCalories = 
-      (+document.getElementById("breakfastCalories").value||0) +
-      (+document.getElementById("lunchCalories").value||0) +
-      (+document.getElementById("dinnerCalories").value||0);
-    currentRow.children[1].textContent = totalCalories;
-  }
-  closeEdit();
+  const form = new FormData(document.getElementById("editForm"));
+
+  fetch("manage-diet-edit.php", {
+    method: "POST",
+    body: form
+  })
+  .then(r=>r.text())
+  .then(t=>{
+    alert(t);
+    location.reload();
+  });
 }
 
-function deletePlan(btn){
-  if(confirm("Are you sure you want to delete this plan?"))
-    btn.closest("tr").remove();
+function deletePlan(table,id){
+  if(!confirm("Are you sure you want to delete this plan?")) return;
+
+  fetch("manage-diet-delet.php",{
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:"table="+table+"&id="+id
+  })
+  .then(r=>r.text())
+  .then(t=>{
+    alert(t);
+    location.reload();
+  });
 }
 </script>
+
 </body>
 </html>
