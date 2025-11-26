@@ -234,60 +234,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['statsAction'])) {
     header("Location: user-dashboard.php");
     exit;
 }
-
 /****************************************
-  FETCH TODAY EXERCISE (عرض فقط)
+  FETCH USER CUSTOM WORKOUT (آخر ووركاوت مضاف)
 *****************************************/
-$ex = $conn->query("
-    SELECT $pk AS ex_id, workout_group, exercise, sets, reps 
-    FROM $workoutTable 
+$wstmt = $conn->prepare("
+    SELECT workout_id AS id, name, items
+    FROM user_workouts
+    ORDER BY workout_id DESC
     LIMIT 1
-")->fetch_assoc();
+");
 
-if (!$ex) {
-    $ex = [
-        "ex_id"         => 0,
-        "workout_group" => "No group",
-        "exercise"      => "No exercise available",
-        "sets"          => 0,
-        "reps"          => 0
+$wstmt->execute();
+$wrow = $wstmt->get_result()->fetch_assoc();
+$wstmt->close();
+
+
+$userWorkout = null;
+
+if ($wrow) {
+    $userWorkout = [
+        "id"    => $wrow["id"],
+        "name"  => $wrow["name"],
+        "items" => json_decode($wrow["items"], true)
     ];
 }
 
-$exId    = $ex['ex_id'];
-$exGroup = $ex['workout_group'];
-$exName  = $ex['exercise'];
-$exSets  = $ex['sets'];
-$exReps  = $ex['reps'];
-
 /****************************************
-  EXERCISE EDIT / DELETE (لو حبيتي تستخدمينها)
+  FETCH TODAY EXERCISE (من جدول user_workouts)
 *****************************************/
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['exAction'])) {
 
-    $action = $_POST['exAction'];
-    $exId   = (int) $_POST['ex_id'];
+if ($userWorkout && isset($userWorkout['items'][0])) {
 
-    if ($action === "save") {
-        $newName = $_POST['ex_name'];
-        $newSets = (int)$_POST['ex_sets'];
-        $newReps = $_POST['ex_reps'];
+    // نأخذ أول تمرين فقط كـ "Today's Exercise"
+    $todayEx = $userWorkout['items'][0];
 
-        $upd = $conn->prepare("UPDATE $workoutTable SET exercise=?, sets=?, reps=? WHERE $pk=?");
-        $upd->bind_param("sisi", $newName, $newSets, $newReps, $exId);
-        $upd->execute();
-        $upd->close();
+    $exName  = $todayEx['name'] ?? "Unnamed Exercise";
+    $exSets  = $todayEx['sets'] ?? 0;
+    $exReps  = $todayEx['reps'] ?? 0;
+    $exGroup = ""; // لأن custom ما فيه جروب
+    $exId    = $userWorkout['id'];
 
-    } elseif ($action === "delete") {
-        $del = $conn->prepare("DELETE FROM $workoutTable WHERE $pk=? LIMIT 1");
-        $del->bind_param("i", $exId);
-        $del->execute();
-        $del->close();
-    }
-
-    header("Location: user-dashboard.php");
-    exit;
+} else {
+    // المستخدم ما أضاف تمارين
+    $exName  = "No exercise added yet";
+    $exSets  = 0;
+    $exReps  = 0;
+    $exGroup = "";
+    $exId    = 0;
 }
+
+
+
 
 /****************************************
   BUTTON STATES (أخضر / برتقالي)
@@ -742,7 +739,6 @@ $dietBtnLabel    = $dietDone ? 'Done ✓'     : 'Done';
   }
   
  
-// ========== جلب السعرات المتبقية من جدول diet_progress ==========
 function refreshCalories() {
     fetch("fetch_remaining.php")
     .then(res => res.json())
@@ -760,4 +756,4 @@ setInterval(refreshCalories, 1000);
 
 </script>
 </body>
-</html>
+</html> 
