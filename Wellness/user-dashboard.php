@@ -234,55 +234,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['statsAction'])) {
     header("Location: user-dashboard.php");
     exit;
 }
-/****************************************
-  FETCH USER CUSTOM WORKOUT (آخر ووركاوت مضاف)
-*****************************************/
-$wstmt = $conn->prepare("
-    SELECT workout_id AS id, name, items
-    FROM user_workouts
-    ORDER BY workout_id DESC
-    LIMIT 1
-");
 
-$wstmt->execute();
-$wrow = $wstmt->get_result()->fetch_assoc();
-$wstmt->close();
-
-
-$userWorkout = null;
-
-if ($wrow) {
-    $userWorkout = [
-        "id"    => $wrow["id"],
-        "name"  => $wrow["name"],
-        "items" => json_decode($wrow["items"], true)
-    ];
-}
 
 /****************************************
   FETCH TODAY EXERCISE (من جدول user_workouts)
+  - يعرض تمارين تمت إضافتها اليوم
+  - إذا ما فيه → يأخذ آخر recommended_master بنفس level (أو أي واحد) ويضيفه لليوم
 *****************************************/
 
-if ($userWorkout && isset($userWorkout['items'][0])) {
+// تأكد استخدام $userId (اسم المتغير في الصفحة)
+$stmt = $conn->prepare("SELECT fitness_level FROM users WHERE UserID = ? LIMIT 1");
+$stmt->bind_param('i', $userId);
+$stmt->execute();
+$res = $stmt->get_result();
+$userRow = $res->fetch_assoc();
+$stmt->close();
+$userLevel = $userRow['fitness_level'] ?? 'beginner';
 
-    // نأخذ أول تمرين فقط كـ "Today's Exercise"
-    $todayEx = $userWorkout['items'][0];
+// 1) جلب تمارين اليوم من user_workouts
+$todayWorkouts = [];
+$stmt = $conn->prepare("SELECT workout_id, name, items, created_at FROM user_workouts WHERE user_id = ? AND DATE(created_at) = CURDATE() ORDER BY created_at DESC");
+$stmt->bind_param('i', $userId);
+$stmt->execute();
+$res = $stmt->get_result();
+while ($r = $res->fetch_assoc()) {
+    $r['items_arr'] = json_decode($r['items'], true) ?: [];
+    $todayWorkouts[] = $r;
+}
+$stmt->close();
 
-    $exName  = $todayEx['name'] ?? "Unnamed Exercise";
-    $exSets  = $todayEx['sets'] ?? 0;
-    $exReps  = $todayEx['reps'] ?? 0;
-    $exGroup = ""; // لأن custom ما فيه جروب
-    $exId    = $userWorkout['id'];
+// 2) لو ما فيه تمارين اليوم → نسحب recommended_master وننسخها إلى user_workouts لليوم
+if (empty($todayWorkouts)) {
+    // حاول أولاً حسب مستوى المستخدم
+    $stmt = $conn->prepare("SELECT id, name, items FROM recommended_master WHERE level = ? ORDER BY created_at DESC LIMIT 1");
+    $stmt->bind_param('s', $userLevel);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $rec = $res->fetch_assoc();
+    $stmt->close();
 
-} else {
-    // المستخدم ما أضاف تمارين
-    $exName  = "No exercise added yet";
-    $exSets  = 0;
-    $exReps  = 0;
-    $exGroup = "";
-    $exId    = 0;
+    // fallback: لو ما لقيت شيء بنفس المستوى خذ أي واحد آخر
+    if (!$rec) {
+        $res = $conn->query("SELECT id, name, items FROM recommended_master ORDER BY created_at DESC LIMIT 1");
+        $rec = $res ? $res->fetch_assoc() : null;
+    }
+
+    if ($rec) {
+        // انسخ إلى user_workouts
+        $ins = $conn->prepare("INSERT INTO user_workouts (user_id, name, items, created_at) VALUES (?, ?, ?, NOW())");
+        $itemsJson = $rec['items'];
+        $ins->bind_param('iss', $userId, $rec['name'], $itemsJson);
+        $ins->execute();
+
+        // الحصول على id من $conn
+        $newId = (int)$conn->insert_id;
+        $ins->close();
+
+        // نعيد جلب الصف الجديد
+        if ($newId > 0) {
+            $stmt = $conn->prepare("SELECT workout_id, name, items, created_at FROM user_workouts WHERE workout_id = ? LIMIT 1");
+            $stmt->bind_param('i', $newId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($row = $res->fetch_assoc()) {
+                $row['items_arr'] = json_decode($row['items'], true) ?: [];
+                $todayWorkouts[] = $row;
+            }
+            $stmt->close();
+        }
+    }
 }
 
+// 3) الآن حضّر متغيرات العرض (افتراضي إذا ما فيه شيء)
+$exName = "No exercise added yet";
+$exSets = 0;
+$exReps = 0;
+$exGroup = "";
+$exId = 0;
+
+if (!empty($todayWorkouts)) {
+    $first = $todayWorkouts[0];
+    $firstItem = $first['items_arr'][0] ?? null;
+
+    if ($firstItem) {
+        $exName  = $firstItem['name'] ?? ($firstItem['exercise'] ?? 'Unnamed Exercise');
+        $exSets  = $firstItem['sets'] ?? 0;
+        $exReps  = $firstItem['reps'] ?? 0;
+        $exGroup = $firstItem['group'] ?? '';
+    } else {
+        // لو الـ items شكل مختلف (مثلاً items يحتوي على تمرين مباشرة كـ exercise key)
+        $exName  = $first['name'] ?? $first['items'] ? 'Workout' : 'No exercise';
+        $exSets  = 0;
+        $exReps  = 0;
+        $exGroup = '';
+    }
+
+    $exId = (int)$first['workout_id'];
+}
+
+// (اختياري) تمرير JSON للفرونت اند لو تحتاجه
+$today_json = json_encode($todayWorkouts, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP|JSON_UNESCAPED_UNICODE);
 
 
 
@@ -757,4 +808,3 @@ setInterval(refreshCalories, 1000);
 </script>
 </body>
 </html> 
-
