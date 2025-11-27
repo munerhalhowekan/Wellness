@@ -74,17 +74,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     // 3) Delete Exercise
+      // 3) Delete Exercise
     if ($action === 'delete_exercise') {
         $level = clean_str($_POST['level'] ?? 'beginner');
         $id = intval($_POST['id'] ?? 0);
         if ($id <= 0) json_response(['ok'=>false,'error'=>'Invalid id']);
         list($table,$pk) = choose_table_and_pk($level);
+
+        // 1) delete from level table
         $stmt = $conn->prepare("DELETE FROM `$table` WHERE `$pk` = ? LIMIT 1");
         $stmt->bind_param('i', $id);
-        $ok = $stmt->execute();
+        $ok1 = $stmt->execute();
         $stmt->close();
-        json_response(['ok'=> (bool)$ok]);
+
+        // build the exId used in stored JSON (same pattern as front-end)
+        $targetExId = $level . '_' . $id;
+
+        // 2) remove references from recommended_master (items is JSON array)
+        $stmt = $conn->prepare("SELECT id, items FROM recommended_master");
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $toUpdate = [];
+        while ($row = $res->fetch_assoc()) {
+            $items = json_decode($row['items'], true);
+            if (!is_array($items)) continue;
+            $filtered = array_values(array_filter($items, function($it) use ($targetExId) {
+                // exId may be string like "beginner_2"
+                return !(isset($it['exId']) && (string)$it['exId'] === (string)$targetExId);
+            }));
+            if (count($filtered) !== count($items)) {
+                // changed: either update or delete if empty
+                if (count($filtered) === 0) {
+                    // delete the recommended_master row
+                    $del = $conn->prepare("DELETE FROM recommended_master WHERE id = ? LIMIT 1");
+                    $del->bind_param('i', $row['id']);
+                    $del->execute();
+                    $del->close();
+                } else {
+                    $upd = $conn->prepare("UPDATE recommended_master SET items = ? WHERE id = ?");
+                    $json_new = json_encode($filtered, JSON_UNESCAPED_UNICODE);
+                    $upd->bind_param('si', $json_new, $row['id']);
+                    $upd->execute();
+                    $upd->close();
+                }
+            }
+        }
+        $stmt->close();
+
+        // 3) remove references from user_workouts (same logic)
+        $stmt = $conn->prepare("SELECT workout_id, items FROM user_workouts");
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $items = json_decode($row['items'], true);
+            if (!is_array($items)) continue;
+            $filtered = array_values(array_filter($items, function($it) use ($targetExId) {
+                return !(isset($it['exId']) && (string)$it['exId'] === (string)$targetExId);
+            }));
+            if (count($filtered) !== count($items)) {
+                if (count($filtered) === 0) {
+                    // delete user_workouts row
+                    $del = $conn->prepare("DELETE FROM user_workouts WHERE workout_id = ? LIMIT 1");
+                    $del->bind_param('i', $row['workout_id']);
+                    $del->execute();
+                    $del->close();
+                } else {
+                    $upd = $conn->prepare("UPDATE user_workouts SET items = ? WHERE workout_id = ?");
+                    $json_new = json_encode($filtered, JSON_UNESCAPED_UNICODE);
+                    $upd->bind_param('si', $json_new, $row['workout_id']);
+                    $upd->execute();
+                    $upd->close();
+                }
+            }
+        }
+        $stmt->close();
+
+        // final response: success only if base delete succeeded
+        json_response(['ok'=> (bool)$ok1]);
     }
+
 
    // 4) Add Recommended Workout (store in recommended_master)
 if ($action === 'add_recommended') {
