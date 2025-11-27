@@ -757,3 +757,4 @@ setInterval(refreshCalories, 1000);
 </script>
 </body>
 </html> 
+
