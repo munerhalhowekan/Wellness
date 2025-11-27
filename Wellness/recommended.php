@@ -43,16 +43,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// GET: load recommended_master
+// Fetch user level
+$stmt = $conn->prepare("SELECT fitness_level FROM users WHERE UserID = ? LIMIT 1");
+$stmt->bind_param("i", $USER_ID);
+$stmt->execute();
+$levelRow = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+$userLevel = $levelRow['fitness_level'] ?? 'beginner';
+
+// GET: load recommended_master filtered by level
 $recommended = [];
-$res = $conn->query("SELECT id, name, level, items, created_at FROM recommended_master ORDER BY created_at DESC");
-if ($res) {
-    while ($r = $res->fetch_assoc()) {
-        $r['items_arr'] = json_decode($r['items'], true) ?: [];
-        $recommended[] = $r;
-    }
-    $res->free();
+
+$stmt = $conn->prepare("SELECT id, name, level, items, created_at 
+                        FROM recommended_master 
+                        WHERE level = ? 
+                        ORDER BY created_at DESC");
+$stmt->bind_param("s", $userLevel);
+$stmt->execute();
+$res = $stmt->get_result();
+
+while ($r = $res->fetch_assoc()) {
+    $r['items_arr'] = json_decode($r['items'], true) ?: [];
+    $recommended[] = $r;
 }
+$stmt->close();
+
 ?>
 <!doctype html>
 <html lang="en">
@@ -60,7 +76,6 @@ if ($res) {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Recommended Workouts — Wellness</title>
-<!-- استخدمت هنا نفس CSS الذي ارسلتِه سابقاً -->
 <style>
     
     
