@@ -8,7 +8,8 @@ if (!isset($_SESSION['user_id'])) {
 
 $current_user_id = $_SESSION['user_id'];
 
-include 'db-connection.php';
+$conn = mysqli_connect("localhost", "root", "root", "wellness", 3306);
+if (!$conn) { die("Connection failed: " . mysqli_connect_error()); }
 
 // Fetch leaderboard sorted by points
 $sql = "SELECT UserID, firstName, lastName, points 
@@ -216,9 +217,10 @@ th{
 <!-- Drawer -->
 <aside id="drawer" class="drawer">
   <h4>Navigation</h4>
-  <a href="dashboard.php">🏠 Dashboard</a>
-  <a href="leaderboard.php" class="active">🏆 Leaderboard</a>
-  <a href="profile.php">👤 Profile</a>
+   <a href="user-dashboard.php">🏠 Dashboard</a>
+    <a href="exercises.php">💪 Exercises</a>
+    <a href="dietplan.php">🥗 Diet Plan</a>
+    <a href="leaderboard.php">🏆 Leaderboard</a>
   <form action="logout.php" method="post">
     <button class="logout">Logout</button>
   </form>
