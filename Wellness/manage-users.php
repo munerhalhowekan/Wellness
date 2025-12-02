@@ -4,8 +4,7 @@ session_start();
  if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
    die("Access denied.");
  }
-
-$conn = mysqli_connect("localhost", "root", "root", "wellness", 3306);
+include 'db-connection.php';
 if (!$conn) {
     die("Database connection failed: " . mysqli_connect_error());
 }
@@ -281,4 +280,5 @@ function deleteUser(id){
 
 </body>
 </html>
+
 
