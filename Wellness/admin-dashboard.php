@@ -1,6 +1,7 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 include 'db-connection.php';
 
@@ -18,10 +19,6 @@ $userCount = $conn->query("SELECT COUNT(*) AS c FROM users")->fetch_assoc()['c']
 
 /****************************************
   FETCH TOTAL EXERCISES
-  من 3 جداول:
-  workout_beginner
-  workout_intermediate
-  workout_advanced
 *****************************************/
 $ex1 = $conn->query("SELECT COUNT(*) AS c FROM workout_beginner")->fetch_assoc()['c'];
 $ex2 = $conn->query("SELECT COUNT(*) AS c FROM workout_intermediate")->fetch_assoc()['c'];
@@ -29,8 +26,10 @@ $ex3 = $conn->query("SELECT COUNT(*) AS c FROM workout_advanced")->fetch_assoc()
 
 $totalExercises = $ex1 + $ex2 + $ex3;
 
-?>
+// Get admin name (from login session)
+$adminName = $_SESSION['firstName'] ?? $_SESSION['name'] ?? "Admin";
 
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,7 +48,6 @@ body{
   font-family:"Poppins","Segoe UI",system-ui,sans-serif;
 }
 
-/* Header */
 header{
   position:sticky;top:0;z-index:60;background:var(--layer);
   border-bottom:1px solid var(--border);
@@ -61,7 +59,6 @@ header{
 .logo-link{display:flex;align-items:center}
 .logo-img{width:120px;height:auto;object-fit:contain}
 
-/* Drawer */
 .drawer{
   position:fixed;left:-260px;top:0;height:100vh;width:260px;background:var(--card);
   border-right:1px solid var(--border);box-shadow:16px 0 30px rgba(0,0,0,.45);
@@ -75,12 +72,10 @@ header{
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:70}
 .overlay.show{display:block}
 
-/* Main */
 main{padding:30px;max-width:1200px;margin:auto}
 .page-title{font-size:1.6rem;font-weight:700;color:var(--accent)}
 .subtitle{color:var(--muted);margin-bottom:28px}
 
-/* Cards */
 .stats{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
@@ -100,7 +95,6 @@ main{padding:30px;max-width:1200px;margin:auto}
 .card-title{font-weight:700;margin-bottom:6px}
 .card-number{font-size:1.8rem;font-weight:800;color:var(--accent)}
 
-/* Logout */
 .logout{
   background:transparent;border:2px solid var(--accent);
   color:var(--accent);border-radius:10px;padding:6px 14px;
@@ -111,21 +105,21 @@ main{padding:30px;max-width:1200px;margin:auto}
 </head>
 <body>
 
-<!-- Drawer + overlay -->
-<aside id="drawer" class="drawer" aria-hidden="true">
+<!-- Drawer -->
+<aside id="drawer" class="drawer">
   <h4>Admin Navigation</h4>
   <a href="admin-dashboard.php" class="active">🏠 Dashboard</a>
   <a href="manage-users.php">👥 Manage Users</a>
   <a href="manage-exercises.php">💪 Manage Exercises</a>
   <a href="manage-diet.php">🥗 Manage Diet Plans</a>
+
   <form action="logout.php" method="post">
-    <button class="logout">Logout</button>
+      <button class="logout">Logout</button>
   </form>
 </aside>
 
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
-<!-- Header -->
 <header>
   <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Admin Dashboard</div>
@@ -136,7 +130,7 @@ main{padding:30px;max-width:1200px;margin:auto}
 
 <!-- Main -->
 <main>
-  <div class="page-title">Welcome, Admin!</div>
+  <div class="page-title">Welcome, <?php echo htmlspecialchars($adminName); ?>!</div>
   <p class="subtitle">Here’s a summary of your site:</p>
 
   <div class="stats">
@@ -154,16 +148,17 @@ main{padding:30px;max-width:1200px;margin:auto}
     </div>
 
   </div>
-
 </main>
 
 <script>
 function toggleDrawer(force){
   const d=document.getElementById('drawer'),o=document.getElementById('overlay');
   const open=(typeof force==='boolean')?force:!d.classList.contains('open');
-  d.classList.toggle('open',open);o.classList.toggle('show',open);
+  d.classList.toggle('open',open);
+  o.classList.toggle('show',open);
 }
-document.querySelectorAll('#drawer a').forEach(a=>a.addEventListener('click',()=>toggleDrawer(false)));
+document.querySelectorAll('#drawer a')
+  .forEach(a=>a.addEventListener('click',()=>toggleDrawer(false)));
 </script>
 
 </body>
