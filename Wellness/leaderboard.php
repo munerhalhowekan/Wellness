@@ -1,14 +1,17 @@
 <?php
 session_start();
 
+// Must be logged in
+if (!isset($_SESSION['user_id'])) {
+    die("❌ You must log in first.");
+}
 
 $current_user_id = $_SESSION['user_id'];
 
-/* DB CONNECTION */
-$conn = mysqli_connect("localhost", "root", "root", "wellness", 3306);
-if (!$conn) { die("Connection failed: " . mysqli_connect_error()); }
+include 'db-connection.php';
 
-/* FETCH LEADERBOARD */
+
+// Fetch leaderboard sorted by points
 $sql = "SELECT UserID, firstName, lastName, points 
         FROM users
         ORDER BY points DESC";
@@ -20,7 +23,6 @@ $rank = 1;
 $myRank = null;
 $myPoints = null;
 
-/* Scan result once to get user rank BEFORE printing */
 $allRows = [];
 while($row = mysqli_fetch_assoc($result)){
     $allRows[] = $row;
@@ -32,8 +34,7 @@ while($row = mysqli_fetch_assoc($result)){
     $rank++;
 }
 
-/* Reset for table printing */
-$rank = 1;
+$rank = 1; // Reset for printing
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -43,76 +44,211 @@ $rank = 1;
 <title>Leaderboard — Wellness</title>
 
 <style>
-  :root{
-    --bg:#1c1c1c; --layer:#222; --card:#2a2a2a; --text:#fff;
-    --muted:#cfcfcf; --border:#3a3a3a; --accent:#ff6600;
-    --accent-2:#ff8533; --shadow:0 0 18px rgba(255,102,0,.28);
-  }
-  body{
-    margin:0;background:var(--bg);color:var(--text);
-    font-family:"Poppins","Segoe UI",system-ui,Arial,sans-serif;
-  }
+/* Theme Variables */
+:root{
+  --bg:#1c1c1c; 
+  --layer:#222; 
+  --card:#2a2a2a; 
+  --text:#fff;
+  --muted:#cfcfcf; 
+  --border:#3a3a3a; 
+  --accent:#ff6600;
+  --accent2:#ff8533; 
+  --shadow:0 0 18px rgba(255,102,0,.28);
+}
 
-  header{
-    position:sticky;top:0;z-index:50;
-    background:var(--layer);padding:12px 18px;
-    display:flex;justify-content:space-between;align-items:center;
-    border-bottom:1px solid var(--border);
-  }
+/* Reset + Fix Drawer Peeking */
+body{
+  margin:0 !important;
+  padding:0 !important;
+  overflow-x:hidden !important;
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Poppins","Segoe UI",system-ui,Arial,sans-serif;
+}
 
-  .logo-img{width:120px;}
+/* Header */
+header{
+  position:sticky;
+  top:0;
+  z-index:60;
+  background:var(--layer);
+  padding:12px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.page{font-weight:800;}
+.logo-img{width:120px;height:auto;}
+.hamburger{cursor:pointer;font-size:24px;color:var(--text);}
 
-  main{max-width:800px;margin:40px auto;padding:0 16px;}
+/* Drawer (Same as Dashboard) */
+.drawer{
+  position:fixed;
+  top:0;
+  left:-300px;      /* fully hidden */
+  width:260px;
+  height:100vh;
+  background:var(--card);
+  padding:18px;
+  border-right:1px solid var(--border);
+  box-shadow:16px 0 30px rgba(0,0,0,.45);
+  z-index:80;
+  transition:left .28s ease;
+}
+.drawer.open{
+  left:0;
+}
+.drawer h4{
+  color:var(--accent);
+  margin-bottom:12px;
+}
+.drawer a{
+  display:block;
+  padding:10px;
+  color:var(--text);
+  text-decoration:none;
+  border-radius:10px;
+  margin:6px 0;
+}
+.drawer a:hover{
+  background:rgba(255,102,0,.15);
+}
+/* Logout Button - MATCHES DASHBOARD STYLE */
+.logout{
+  width: 120px;
+  background: var(--accent);
+  color:#fff;
+  border:none;
+  padding:10px 18px;
+  border-radius:12px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top: 20px;
+  margin-left: 5px;
+  transition:.2s;
+}
+.logout:hover{
+  background:#e65500;
+}
 
-  .leader-card{
-    background:var(--card);border-radius:16px;
-    padding:24px;border:1px solid var(--border);
-    box-shadow:var(--shadow);
-  }
-  .leader-card h1{text-align:center;color:var(--accent);}
-  .leader-sub{text-align:center;color:var(--muted);margin-bottom:14px;}
+/* Overlay */
+.overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
+  display:none;
+  z-index:70;
+}
+.overlay.show{
+  display:block;
+}
 
-  /* My Rank box (now ABOVE the table) */
-  .my-box{
-    background:#222;border:1px solid var(--border);border-radius:12px;
-    padding:14px 16px;margin:0 0 20px 0;
-    display:flex;justify-content:space-between;align-items:center;
-  }
-  .my-box strong{color:var(--accent);}
-  .my-box small{color:var(--muted);}
+/* Main Container */
+main{
+  max-width:900px;
+  margin:40px auto;
+  padding:0 16px;
+}
 
-  table{width:100%;border-collapse:collapse;}
-  th,td{padding:12px;border-bottom:1px solid var(--border);}
-  th{background:#252525;color:var(--accent);font-weight:700;}
-  tr:last-child td{border-bottom:none;}
+/* Leaderboard Card */
+.leader-card{
+  background:var(--card);
+  border-radius:16px;
+  padding:28px;
+  border:1px solid var(--border);
+  box-shadow:var(--shadow);
+}
+.leader-card h1{
+  text-align:center;
+  color:var(--accent);
+  margin-top:0;
+}
+.leader-sub{
+  text-align:center;
+  color:var(--muted);
+  margin-bottom:20px;
+}
 
-  .gold{color:gold;} .silver{color:#c0c0c0;} .bronze{color:#cd7f32;}
-  .me-row{background:rgba(255,102,0,.15);}
+/* Rank Bar */
+.my-box{
+  background:#222;
+  border:1px solid var(--border);
+  border-radius:12px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 16px;
+  margin-bottom:20px;
+}
+.my-box strong{
+  color:var(--accent);
+}
+.my-box small{
+  color:var(--muted);
+}
+
+/* Table */
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+th, td{
+  padding:14px 10px;
+  border-bottom:1px solid var(--border);
+}
+th{
+  background:#252525;
+  color:var(--accent);
+}
+.me-row{
+  background:rgba(255,102,0,.15);
+}
+
+/* Medals */
+.gold{color:gold;}
+.silver{color:#c0c0c0;}
+.bronze{color:#cd7f32;}
 </style>
+
 </head>
 <body>
 
+<!-- Drawer -->
+<aside id="drawer" class="drawer">
+  <h4>Navigation</h4>
+  <a href="dashboard.php">🏠 Dashboard</a>
+  <a href="leaderboard.php" class="active">🏆 Leaderboard</a>
+  <a href="profile.php">👤 Profile</a>
+  <form action="logout.php" method="post">
+    <button class="logout">Logout</button>
+  </form>
+</aside>
+
+<div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
+
+<!-- Header -->
 <header>
-  <div class="hamburger">☰</div>
+  <div class="hamburger" onclick="toggleDrawer()">☰</div>
   <div class="page">Leaderboard</div>
   <img src="wellness logo.png" class="logo-img">
 </header>
 
+<!-- Main -->
 <main>
   <div class="leader-card">
     <h1>🏆 Wellness Leaderboard</h1>
     <p class="leader-sub">See how you rank compared to others</p>
 
-    <!-- ⭐ My Rank BOX (NOW ABOVE THE TABLE) ⭐ -->
     <?php if ($myRank !== null): ?>
       <div class="my-box">
         <span><strong>Your Rank:</strong> #<?php echo $myRank; ?></span>
         <span><strong>Your Points:</strong> <?php echo $myPoints; ?> pts</span>
-        <small>Keep climbing the leaderboard 💪🔥</small>
+        <small>Keep climbing 💪🔥</small>
       </div>
     <?php endif; ?>
 
-    <!-- Leaderboard TABLE -->
     <table>
       <thead>
         <tr>
@@ -122,7 +258,6 @@ $rank = 1;
         </tr>
       </thead>
       <tbody>
-
       <?php foreach($allRows as $row): ?>
         <?php
           $class = "";
@@ -134,19 +269,32 @@ $rank = 1;
 
           $isMe = ($current_user_id == $row["UserID"]);
         ?>
-
         <tr class="<?php echo $isMe ? 'me-row' : ''; ?>">
           <td class="<?php echo $class; ?>"><?php echo $medal; ?></td>
           <td><?php echo $row["firstName"] . " " . $row["lastName"]; ?></td>
           <td style="text-align:right;"><?php echo $row["points"]; ?> pts</td>
         </tr>
-
-        <?php $rank++; endforeach; ?>
+      <?php $rank++; endforeach; ?>
       </tbody>
     </table>
 
   </div>
 </main>
+
+<script>
+function toggleDrawer(force){
+  const drawer = document.getElementById("drawer");
+  const overlay = document.getElementById("overlay");
+  const open = (typeof force === "boolean") ? force : !drawer.classList.contains("open");
+
+  drawer.classList.toggle("open", open);
+  overlay.classList.toggle("show", open);
+}
+
+document.querySelectorAll('#drawer a').forEach(a => 
+  a.addEventListener('click', () => toggleDrawer(false))
+);
+</script>
 
 </body>
 </html>
