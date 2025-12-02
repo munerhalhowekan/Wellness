@@ -8,8 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $current_user_id = $_SESSION['user_id'];
 
-$conn = mysqli_connect("localhost", "root", "root", "wellness", 3306);
-if (!$conn) { die("Connection failed: " . mysqli_connect_error()); }
+include "db-connection.php";
 
 // Fetch leaderboard sorted by points
 $sql = "SELECT UserID, firstName, lastName, points 
@@ -298,3 +297,4 @@ document.querySelectorAll('#drawer a').forEach(a =>
 
 </body>
 </html>
+
