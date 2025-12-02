@@ -4,10 +4,8 @@ session_start();
  if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
    die("Access denied.");
  }
+
 include 'db-connection.php';
-if (!$conn) {
-    die("Database connection failed: " . mysqli_connect_error());
-}
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['updateUser'])) {
@@ -109,6 +107,22 @@ tr:hover{background:#2f2f2f}
   cursor:pointer;font-weight:600;transition:.2s;
 }
 .actions button:hover{background:var(--accent);color:#fff}
+ /* LOGOUT BUTTON (same as dashboard) */
+.logout{
+  background:transparent;
+  border:2px solid var(--accent);
+  color:var(--accent);
+  border-radius:10px;
+  padding:6px 14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.25s;
+  margin-top:20px;
+}
+.logout:hover{
+  background:var(--accent);
+  color:#fff;
+}
 
 
 .modal{
@@ -139,13 +153,16 @@ input, select{
 </head>
 <body>
 
-
 <aside id="drawer" class="drawer">
   <h4>Admin Navigation</h4>
-  <a href="admin-dashboard.php">🏠 Dashboard</a>
-  <a class="active" href="manage-users.php">👥 Manage Users</a>
+  <a href="admin-dashboard.php" class="active">🏠 Dashboard</a>
+  <a href="manage-users.php">👥 Manage Users</a>
   <a href="manage-exercises.php">💪 Manage Exercises</a>
   <a href="manage-diet.php">🥗 Manage Diet Plans</a>
+
+  <form action="logout.php" method="post">
+      <button class="logout">Logout</button>
+  </form>
 </aside>
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
@@ -280,5 +297,3 @@ function deleteUser(id){
 
 </body>
 </html>
-
-
