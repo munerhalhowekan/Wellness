@@ -10,7 +10,6 @@ $current_user_id = $_SESSION['user_id'];
 
 include 'db-connection.php';
 
-
 // Fetch leaderboard sorted by points
 $sql = "SELECT UserID, firstName, lastName, points 
         FROM users
@@ -115,22 +114,21 @@ header{
 .drawer a:hover{
   background:rgba(255,102,0,.15);
 }
-/* Logout Button - MATCHES DASHBOARD STYLE */
+/* LOGOUT BUTTON (same as dashboard) */
 .logout{
-  width: 120px;
-  background: var(--accent);
-  color:#fff;
-  border:none;
-  padding:10px 18px;
-  border-radius:12px;
+  background:transparent;
+  border:2px solid var(--accent);
+  color:var(--accent);
+  border-radius:10px;
+  padding:6px 14px;
   font-weight:600;
   cursor:pointer;
-  margin-top: 20px;
-  margin-left: 5px;
-  transition:.2s;
+  transition:.25s;
+  margin-top:20px;
 }
 .logout:hover{
-  background:#e65500;
+  background:var(--accent);
+  color:#fff;
 }
 
 /* Overlay */
