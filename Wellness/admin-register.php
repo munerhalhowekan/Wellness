@@ -1,11 +1,9 @@
 <?php
-// أضيفي هذه الأسطر الثلاثة لإظهار أي أخطاء
+// إظهار الأخطاء
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-
-// ...
 /*
  * ========================================
  * ملف تسجيل الأدمن (مدموج)
@@ -24,27 +22,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
     
-    // --- استخدام الحقول الجديدة "firstName" و "lastName" ---
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
-
-    $check = $conn->prepare("SELECT UserID FROM users WHERE email = ?");
-    $check->bind_param("s", $email);
-    $check->execute();
-    $result = $check->get_result();
-
-    if ($result->num_rows > 0) {
-        $error_message = "This email is already in use!";
-    } else {
-        // --- استخدام الحقول الجديدة "firstName" و "lastName" ---
-        $insert = $conn->prepare("INSERT INTO users (firstName, lastName, email, password_hash, role) VALUES (?, ?, ?, ?, ?)");
-        $insert->bind_param("sssss", $fname, $lname, $email, $password_hash, $userType);
+    // ---------------------------------------------------------
+    // 1. التحقق من قيود كلمة المرور (Validation)
+    // ---------------------------------------------------------
+    if (strlen($password) < 8) {
+        $error_message = "Password must be at least 8 characters long!";
+    }
+    elseif (!preg_match("/[A-Z]/", $password) || 
+            !preg_match("/[a-z]/", $password) || 
+            !preg_match("/[0-9]/", $password) || 
+            !preg_match("/[\W]/", $password)) {
         
-        if ($insert->execute()) {
-            // توجيه لصفحة الدخول مع رسالة نجاح
-            header("Location: admin-login.php?success=1");
-            exit();
+        $error_message = "Password must include uppercase, lowercase, number, and special character!";
+    }
+
+    // ---------------------------------------------------------
+    // 2. إذا لم يكن هناك أخطاء، نكمل التسجيل
+    // ---------------------------------------------------------
+    if (empty($error_message)) {
+
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $check = $conn->prepare("SELECT UserID FROM users WHERE email = ?");
+        $check->bind_param("s", $email);
+        $check->execute();
+        $result = $check->get_result();
+
+        if ($result->num_rows > 0) {
+            $error_message = "This email is already in use!";
         } else {
-            $error_message = "An error occurred during registration. Please try again.";
+            $insert = $conn->prepare("INSERT INTO users (firstName, lastName, email, password_hash, role) VALUES (?, ?, ?, ?, ?)");
+            $insert->bind_param("sssss", $fname, $lname, $email, $password_hash, $userType);
+            
+            if ($insert->execute()) {
+                // توجيه لصفحة الدخول مع رسالة نجاح
+                header("Location: admin-login.php?success=1");
+                exit();
+            } else {
+                $error_message = "An error occurred during registration. Please try again.";
+            }
         }
     }
 }
@@ -79,6 +95,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       <div class="input-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required>
+        <small style="color:#aaa; font-size:12px;">(Must contain 8+ chars, Uppercase, Lowercase, Number, Symbol)</small>
       </div>
 
       <?php if (!empty($error_message)): ?>
