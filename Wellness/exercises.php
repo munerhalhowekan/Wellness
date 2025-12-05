@@ -137,22 +137,35 @@ input{background:#2f2f2f;border:1px solid var(--border);color:#fff;border-radius
 </head>
 <body>
 
-<!-- DRAWER -->
-<div id="drawer" class="drawer">
-    <h4>Navigation</h4>
-    <a href="user-dashboard.php">🏠 Dashboard</a>
+
+<!-- Drawer -->
+<aside id="drawer" class="drawer">
+  <h4> Navigation</h4>
+   <a href="user-dashboard.php">🏠 Dashboard</a>
     <a href="exercises.php">💪 Exercises</a>
     <a href="dietplan.php">🥗 Diet Plan</a>
     <a href="leaderboard.php">🏆 Leaderboard</a>
-</div>
+
+  <form action="logout.php" method="post">
+      <button class="logout">Logout</button>
+  </form>
+</aside>
+
 <div id="overlay" class="overlay" onclick="toggleDrawer(false)"></div>
 
-<!-- HEADER -->
 <header>
   <div class="hamburger" onclick="toggleDrawer()">☰</div>
-  <div style="font-weight:800">Exercises</div>
-  <a class="link-right" href="recommended.php">Recommended</a>
+  <div class="page">Exercises</div>
+  <a href="admin-dashboard.php" class="logo-link">
+    <img src="wellness logo.png" alt="Wellness Logo" class="logo-img">
+  </a>
+
 </header>
+
+
+
+
+
 
 <main>
 
@@ -161,6 +174,8 @@ input{background:#2f2f2f;border:1px solid var(--border);color:#fff;border-radius
       <input id="searchInput" placeholder="Search exercise..." style="width:100%">
     </div>
     <button id="selectToggle" class="btn">Select</button>
+      <a class="link-right" href="recommended.php">Recommended</a>
+
   </div>
 
   <div id="grid" class="grid"></div>
