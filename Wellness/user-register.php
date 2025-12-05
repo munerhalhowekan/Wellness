@@ -1,5 +1,4 @@
 <?php
-// إظهار الأخطاء
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -9,43 +8,38 @@ include 'db-connection.php';
 
 $error_message = '';
 
+// تعريف المتغيرات بقيم فارغة افتراضياً لتجنب الأخطاء عند فتح الصفحة لأول مرة
+$fname = '';
+$lname = '';
+$email = '';
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    
     $userType = 'user';
+    // هنا نحتفظ بالقيم التي أدخلها المستخدم
     $fname = $_POST['fname'] ?? '';
     $lname = $_POST['lname'] ?? '';
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    // ---------------------------------------------------------
-    // 1. التحقق من قيود كلمة المرور (قبل أي شيء آخر)
-    // ---------------------------------------------------------
+    // 1. التحقق من قوة الباسوورد
     if (strlen($password) < 8) {
         $error_message = "Password must be at least 8 characters long!";
-    }
-    elseif (!preg_match("/[A-Z]/", $password) || 
-            !preg_match("/[a-z]/", $password) || 
-            !preg_match("/[0-9]/", $password) || 
-            !preg_match("/[\W]/", $password)) {
-        
+    } elseif (!preg_match("/[A-Z]/", $password) || 
+              !preg_match("/[a-z]/", $password) || 
+              !preg_match("/[0-9]/", $password) || 
+              !preg_match("/[\W]/", $password)) {
         $error_message = "Password must include uppercase, lowercase, number, and special character!";
     }
-    
-    // ---------------------------------------------------------
-    // 2. إذا لم يكن هناك أخطاء في الباسوورد، نكمل التسجيل
-    // ---------------------------------------------------------
-    if (empty($error_message)) {
-        
-        $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
+    // 2. إذا الباسوورد سليم، نكمل
+    if (empty($error_message)) {
         $check = $conn->prepare("SELECT UserID FROM users WHERE email = ?");
         $check->bind_param("s", $email);
         $check->execute();
-        $result = $check->get_result();
-
-        if ($result->num_rows > 0) {
+        if ($check->get_result()->num_rows > 0) {
             $error_message = "This email is already in use!";
         } else {
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
             $insert = $conn->prepare("INSERT INTO users (firstName, lastName, email, password_hash, role) VALUES (?, ?, ?, ?, ?)");
             $insert->bind_param("sssss", $fname, $lname, $email, $password_hash, $userType);
             
@@ -63,7 +57,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -76,36 +69,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <div class="form-container">
     <h1>Create Your Account</h1>
     <p class="subtitle">Join Wellness and start your fitness journey</p>
-
     <form action="user-register.php" method="post">
       <div class="input-group">
-        <label for="fname">First Name</label>
-        <input type="text" id="fname" name="fname" required>
+        <label>First Name</label>
+        <input type="text" name="fname" value="<?php echo htmlspecialchars($fname); ?>" required>
       </div>
       <div class="input-group">
-        <label for="lname">Last Name</label>
-        <input type="text" id="lname" name="lname" required>
+        <label>Last Name</label>
+        <input type="text" name="lname" value="<?php echo htmlspecialchars($lname); ?>" required>
       </div>
       <div class="input-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required>
+        <label>Email</label>
+        <input type="email" name="email" value="<?php echo htmlspecialchars($email); ?>" required>
       </div>
       <div class="input-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-        <small style="color:#aaa; font-size:12px;">(Must contain 8+ chars, Uppercase, Lowercase, Number, Symbol)</small>
+        <label>Password</label>
+        <input type="password" name="password" required>
+        <small style="color:#aaa; font-size:12px;">(8+ chars, Uppercase, Lowercase, Number, Symbol)</small>
       </div>
-
-      <?php if (!empty($error_message)): ?>
-        <p style="color: red; text-align: center;"><?php echo $error_message; ?></p>
-      <?php endif; ?>
-
+      <?php if (!empty($error_message)): ?><p style="color: red; text-align: center;"><?php echo $error_message; ?></p><?php endif; ?>
       <button type="submit" class="btn form-btn">Register</button>
     </form>
-
-    <p class="login-text">
-      Already have an account? <a href="user-login.php">Login here</a>
-    </p>
+    <p class="login-text">Already have an account? <a href="user-login.php">Login here</a></p>
   </div>
 </body>
 </html>
