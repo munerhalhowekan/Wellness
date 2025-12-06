@@ -321,7 +321,6 @@ if (!name) {
 
   fetch(location.href,{method:'POST',body:form})
   .then(r=>r.json()).then(j=>{
-    alert(j.ok?'Workout added successfully to Dashboard':'Failed to save.');
     closeModal();selected.clear();renderGrid();
   });
 }
@@ -331,3 +330,4 @@ renderGrid();
 
 </body>
 </html>
+
